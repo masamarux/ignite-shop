@@ -1,9 +1,80 @@
+import { GetStaticPaths, GetStaticProps } from 'next'
+import Image from 'next/image'
 import { useRouter } from 'next/router'
+import { getPlaiceholder } from 'plaiceholder'
+import Stripe from 'stripe'
+import { stripe } from '../../lib/stripe'
+import { ImageContainer, ProductContainer, ProductDetails } from '../../styles/pages/product'
 
-export default function Product() {
-  const { query } = useRouter()
+interface ProductProps {
+  product: {
+    id: string
+    name: string
+    imageUrl: string
+    blurDataUrl: string
+    price: string
+    description: string
+  }
+}
 
+export default function Product({product}: ProductProps) {
+  const {isFallback} = useRouter()
+  console.log(isFallback)
+  if (isFallback) {
+    
+    return <p>Carregando...</p>
+  }
   return(
-    <h1>Product: {JSON.stringify(query)}</h1>
+    <ProductContainer>
+      <ImageContainer>
+        <Image src={product.imageUrl} placeholder='blur' blurDataURL={product.blurDataUrl} alt="" width={520} height={480}  />
+      </ImageContainer>
+      <ProductDetails>
+        <h1>{product.name}</h1>
+        <span>{product.price}</span>
+
+        <p>{product.description}</p>
+
+        <button>Comprar agora</button>
+      </ProductDetails>
+    </ProductContainer>
   )
+}
+
+export const getStaticPaths: GetStaticPaths = async () => {
+  return {
+    paths: [
+      { params: { id: 'prod_MhPMNDxoO0DyEB' } }
+    ],
+    fallback: true
+  }
+}
+
+export const getStaticProps: GetStaticProps<any, { id: string }> = async ({params}) => {
+  const productId = params.id
+
+  const product = await stripe.products.retrieve(productId, {
+    expand: ['default_price']
+  })
+
+  const price = product.default_price as Stripe.Price;
+
+  const { base64, img } = await getPlaiceholder(product.images[0]);
+
+  return {
+    props: {
+      product: {
+        id: product.id,
+        name: product.name,
+        imageUrl: img,
+        blurDataUrl: base64,
+        price: new Intl.NumberFormat('pt-BR', {
+          style: 'currency',
+          currency: 'BRL'
+        }).format(price.unit_amount / 100),
+        description: product.description
+      }
+    },
+    revalidate: 60 * 60 * 1 // 1 hour
+  }
 }

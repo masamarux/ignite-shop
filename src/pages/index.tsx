@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import { GetStaticProps } from 'next';
+import Link from 'next/link';
 import { useKeenSlider } from 'keen-slider/react'
 import { getPlaiceholder } from "plaiceholder";
 
@@ -15,11 +16,9 @@ interface HomeProps {
     name: string
     imageUrl: string
     blurDataUrl: string
-    price: number
+    price: string
   }[]
 }
-
-
 
 export default function Home({ products }: HomeProps) {
   const [sliderRef] = useKeenSlider({
@@ -33,14 +32,16 @@ export default function Home({ products }: HomeProps) {
     <HomeContainer ref={sliderRef} className="keen-slider">
       {
         products.map(product => (
-          <Product key={product.id} className='keen-slider__slide'>
-            <Image placeholder='blur' blurDataURL={product.blurDataUrl} src={product.imageUrl} width={520} height={480} alt="" />
+          <Link key={product.id} href={`/product/${product.id}`} passHref legacyBehavior prefetch={false}>
+            <Product className='keen-slider__slide'>
+              <Image placeholder='blur' blurDataURL={product.blurDataUrl} src={product.imageUrl} width={520} height={480} alt="" />
 
-            <footer>
-              <strong>{product.name}</strong>
-              <span>{product.price}</span>
-            </footer>
-          </Product>
+              <footer>
+                <strong>{product.name}</strong>
+                <span>{product.price}</span>
+              </footer>
+            </Product>
+          </Link>
         ))
       }
 
