@@ -1,7 +1,9 @@
+import axios from 'axios'
 import { GetStaticPaths, GetStaticProps } from 'next'
+import Head from 'next/head'
 import Image from 'next/image'
-import { useRouter } from 'next/router'
 import { getPlaiceholder } from 'plaiceholder'
+import { useState } from 'react'
 import Stripe from 'stripe'
 import { stripe } from '../../lib/stripe'
 import { ImageContainer, ProductContainer, ProductDetails } from '../../styles/pages/product'
@@ -10,24 +12,51 @@ interface ProductProps {
   product: {
     id: string
     name: string
-    imageUrl: string
-    blurDataUrl: string
+    img: {
+      src: string
+      width: number
+      height: number
+      type: string
+    }
+    blurDataUrl: string 
     price: string
     description: string
+    defaultPriceId: string
   }
 }
 
 export default function Product({product}: ProductProps) {
-  const {isFallback} = useRouter()
-  console.log(isFallback)
-  if (isFallback) {
+  const [ isCreatingCheckoutSession, setIsCreatingCheckoutSession ] = useState(false)
+
+  async function handleBuyProduct() {
+    try {
+      setIsCreatingCheckoutSession(true)
+      const response = await axios.post('/api/checkout', {
+        priceId: product.defaultPriceId
+      })
+
+      const { checkoutUrl } = response.data
+
+      window.location.href = checkoutUrl
+    } catch(err) {
+      // O ideal seria conectar a uma ferramenta de observabilidade como DataDog ou Sentry
+
+      setIsCreatingCheckoutSession(false)
+
+      alert('Falha ao redirecionar ao checkout')
+    }
     
-    return <p>Carregando...</p>
   }
+
   return(
-    <ProductContainer>
+    <>
+      <Head>
+        <title>{product.name} | Ignite Shop</title>
+      </Head>
+
+      <ProductContainer>
       <ImageContainer>
-        <Image src={product.imageUrl} placeholder='blur' blurDataURL={product.blurDataUrl} alt="" width={520} height={480}  />
+        <Image src={product.img} blurDataURL={product.blurDataUrl} placeholder="blur" alt="" width={520} height={480}  />
       </ImageContainer>
       <ProductDetails>
         <h1>{product.name}</h1>
@@ -35,9 +64,11 @@ export default function Product({product}: ProductProps) {
 
         <p>{product.description}</p>
 
-        <button>Comprar agora</button>
+        <button disabled={isCreatingCheckoutSession} onClick={handleBuyProduct}>Comprar agora</button>
       </ProductDetails>
     </ProductContainer>
+    </>
+
   )
 }
 
@@ -46,7 +77,7 @@ export const getStaticPaths: GetStaticPaths = async () => {
     paths: [
       { params: { id: 'prod_MhPMNDxoO0DyEB' } }
     ],
-    fallback: true
+    fallback: 'blocking'
   }
 }
 
@@ -66,13 +97,14 @@ export const getStaticProps: GetStaticProps<any, { id: string }> = async ({param
       product: {
         id: product.id,
         name: product.name,
-        imageUrl: img,
-        blurDataUrl: base64,
+        img,
+        blurDataUrl: base64, 
         price: new Intl.NumberFormat('pt-BR', {
           style: 'currency',
           currency: 'BRL'
         }).format(price.unit_amount / 100),
-        description: product.description
+        description: product.description,
+        defaultPriceId: price.id,
       }
     },
     revalidate: 60 * 60 * 1 // 1 hour

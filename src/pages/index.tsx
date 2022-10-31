@@ -1,5 +1,6 @@
-import Image from 'next/image';
+import Stripe from 'stripe';
 import { GetStaticProps } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useKeenSlider } from 'keen-slider/react'
 import { getPlaiceholder } from "plaiceholder";
@@ -8,14 +9,19 @@ import { stripe } from '../lib/stripe';
 import { HomeContainer, Product } from '../styles/pages/home';
 
 import 'keen-slider/keen-slider.min.css'
-import Stripe from 'stripe';
+import Head from 'next/head';
 
 interface HomeProps {
   products: {
     id: string
     name: string
-    imageUrl: string
-    blurDataUrl: string
+    img: {
+      src: string
+      width: number
+      height: number
+      type: string
+    }
+    blurDataUrl: string 
     price: string
   }[]
 }
@@ -26,16 +32,21 @@ export default function Home({ products }: HomeProps) {
       perView: 2.7,
       spacing: 48
     }
-    
   })
+
   return (
-    <HomeContainer ref={sliderRef} className="keen-slider">
+    <>
+      <Head>
+        <title>Home | Ignite Shop</title>
+      </Head>
+
+      <HomeContainer ref={sliderRef} className="keen-slider">
+      
       {
         products.map(product => (
-          <Link key={product.id} href={`/product/${product.id}`} passHref legacyBehavior prefetch={false}>
+          <Link key={product.id} href={`/product/${product.id}`} prefetch={false}>
             <Product className='keen-slider__slide'>
-              <Image placeholder='blur' blurDataURL={product.blurDataUrl} src={product.imageUrl} width={520} height={480} alt="" />
-
+              <Image src={product.img} blurDataURL={product.blurDataUrl} placeholder="blur" width={520} height={480} alt="" />
               <footer>
                 <strong>{product.name}</strong>
                 <span>{product.price}</span>
@@ -44,9 +55,8 @@ export default function Home({ products }: HomeProps) {
           </Link>
         ))
       }
-
-      
     </HomeContainer>
+    </>
   )
 }
 
@@ -57,13 +67,15 @@ export const getStaticProps: GetStaticProps = async () => {
 
   const products = response.data.map(async(product) => {
     const price = product.default_price as Stripe.Price;
-    const { base64, img } = await getPlaiceholder(product.images[0]);
+    const { base64, img } = await getPlaiceholder(product.images[0], {
+      removeAlpha: false
+    });
 
     return {
       id: product.id,
       name: product.name,
-      imageUrl: img,
-      blurDataUrl: base64,
+      img,
+      blurDataUrl: base64, 
       price: new Intl.NumberFormat('pt-BR', {
         style: 'currency',
         currency: 'BRL'
